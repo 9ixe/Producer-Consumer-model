@@ -1,0 +1,521 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Stack Implementation Simulator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: console on the left (the program as it runs), stack diagram and source on the right. */
+:root {
+  --bg: #f1f3f1;
+  --panel: #ffffff;
+  --fg: #1c2420;
+  --muted: #5b665f;
+  --line: #d3d9d5;
+  --accent: #1f5f4a;
+  --hl: #d9eee4;
+  --term-bg: #12171a;
+  --term-fg: #d6ddd9;
+  --term-dim: #8b9791;
+  --term-in: #f0d98c;
+  --term-ok: #86d6ac;
+  --term-err: #ff9d90;
+  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101311;
+    --panel: #181c1a;
+    --fg: #e2e8e4;
+    --muted: #95a09a;
+    --line: #2b322e;
+    --accent: #78cfa9;
+    --hl: #1f3a2f;
+    --term-bg: #0b0e0d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101311;
+  --panel: #181c1a;
+  --fg: #e2e8e4;
+  --muted: #95a09a;
+  --line: #2b322e;
+  --accent: #78cfa9;
+  --hl: #1f3a2f;
+  --term-bg: #0b0e0d;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-block: 24px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.page { max-width: 1120px; margin: 0 auto; }
+
+header { margin-bottom: 18px; }
+h1 { font-size: 1.35rem; font-weight: 600; margin: 0 0 2px; text-wrap: balance; }
+.sub { margin: 0; color: var(--muted); font-size: 0.9rem; }
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 820px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+.box {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  min-width: 0;
+}
+.box-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.box-head .name { font-family: var(--font-mono); }
+
+button {
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--fg);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: default; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* console */
+.term {
+  background: var(--term-bg);
+  color: var(--term-fg);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  height: 480px;
+  overflow: auto;
+  padding: 10px 12px;
+}
+.term .ln { white-space: pre-wrap; overflow-wrap: anywhere; min-height: 1.55em; }
+.term .ok { color: var(--term-ok); }
+.term .err { color: var(--term-err); }
+.term .val { color: var(--term-in); }
+.term .dim { color: var(--term-dim); }
+
+.inputrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--term-bg);
+  border-top: 1px solid #262d29;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--term-dim);
+}
+.inputrow label { white-space: nowrap; }
+.inputrow input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #3a423d;
+  color: var(--term-in);
+  font: inherit;
+  padding: 2px 0;
+}
+.inputrow input:focus-visible { outline: none; border-bottom-color: var(--term-in); }
+
+.quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+}
+.quick button { font-family: var(--font-mono); font-size: 0.78rem; }
+
+/* stack diagram */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-bottom: 1px solid var(--line);
+}
+.stat { padding: 8px 12px; min-width: 0; }
+.stat + .stat { border-left: 1px solid var(--line); }
+.stat .k { font-size: 0.72rem; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+.stat .v { font-family: var(--font-mono); font-size: 0.95rem; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+
+.stack-area { padding: 14px 12px; max-height: 330px; overflow: auto; }
+.stack { list-style: none; margin: 0 auto; padding: 0; width: min(100%, 260px); display: flex; flex-direction: column; }
+.cell {
+  display: grid;
+  grid-template-columns: 2.2em minmax(0, 1fr);
+  align-items: center;
+  border: 1.5px solid var(--fg);
+  margin-top: -1.5px;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  min-height: 38px;
+}
+.cell .idx { color: var(--muted); font-size: 0.72rem; text-align: center; border-right: 1px solid var(--line); align-self: stretch; display: flex; align-items: center; justify-content: center; }
+.cell .item { padding: 4px 10px; overflow-wrap: anywhere; }
+.cell.top { background: var(--hl); }
+.cell.top .item::after { content: "  <-- Top"; color: var(--accent); font-size: 0.75rem; white-space: pre; }
+.cell.fresh { animation: drop 0.22s ease-out; }
+@keyframes drop { from { transform: translateY(-10px); opacity: 0.2; } to { transform: none; opacity: 1; } }
+.base { text-align: center; font-size: 0.72rem; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; margin-top: 6px; }
+.empty {
+  border: 1.5px dashed var(--line);
+  color: var(--muted);
+  text-align: center;
+  padding: 22px 10px;
+  font-size: 0.88rem;
+}
+
+/* source */
+.code { padding: 6px 0; max-height: 420px; overflow: auto; }
+.fn { display: block; margin: 0; padding: 6px 12px 6px 10px; border-left: 3px solid transparent; font-family: var(--font-mono); font-size: 0.76rem; line-height: 1.5; white-space: pre; overflow-x: auto; }
+.fn.active { background: var(--hl); border-left-color: var(--accent); }
+.right { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+@media (prefers-reduced-motion: reduce) { .cell.fresh { animation: none; } }
+</style>
+
+<div class="page">
+  <header>
+    <h1>Stack Implementation using List</h1>
+    <p class="sub">Menu-driven program with Push, Pop, Peek, Display and isEmpty. Pop and Peek on an empty stack report Stack Underflow.</p>
+  </header>
+
+  <div class="grid">
+    <section class="box" aria-label="Program console">
+      <div class="box-head"><span class="name">stack_implementation.py</span><button id="restart" type="button">Restart</button></div>
+      <div id="term" class="term" role="log" aria-live="polite"></div>
+      <form id="form" class="inputrow" autocomplete="off">
+        <label id="prompt" for="field"></label>
+        <input id="field" type="text" autocomplete="off" spellcheck="false">
+      </form>
+      <div class="quick" id="quick"></div>
+    </section>
+
+    <div class="right">
+      <section class="box" aria-label="Stack">
+        <div class="box-head"><span>stack = [ ]</span><span id="tick" class="name"></span></div>
+        <div class="stats">
+          <div class="stat"><div class="k">len(stack)</div><div class="v" id="s-len">0</div></div>
+          <div class="stat"><div class="k">stack[-1]</div><div class="v" id="s-top">-</div></div>
+          <div class="stat"><div class="k">isEmpty()</div><div class="v" id="s-empty">True</div></div>
+        </div>
+        <div class="stack-area" id="stack-area"></div>
+      </section>
+
+      <section class="box" aria-label="Source code">
+        <div class="box-head"><span class="name">Function in use</span><span id="active-name" class="name">none yet</span></div>
+        <div class="code" id="code"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var SRC = {
+    isEmpty:
+"def isEmpty(stack):\n" +
+"    \"\"\"Checks whether the stack is empty.\"\"\"\n" +
+"    return len(stack) == 0",
+    push:
+"def push(stack, item):\n" +
+"    \"\"\"Adds an element to the top of the stack.\"\"\"\n" +
+"    stack.append(item)\n" +
+"    print(f\"Success: '{item}' pushed onto the stack.\")",
+    pop:
+"def pop(stack):\n" +
+"    \"\"\"Removes and returns the top element of the stack.\"\"\"\n" +
+"    if isEmpty(stack):\n" +
+"        print(\"Stack Underflow! The stack is empty. Cannot pop.\")\n" +
+"        return None\n" +
+"    item = stack.pop()\n" +
+"    print(f\"Success: Popped element is '{item}'.\")\n" +
+"    return item",
+    peek:
+"def peek(stack):\n" +
+"    \"\"\"Displays the top element without removing it.\"\"\"\n" +
+"    if isEmpty(stack):\n" +
+"        print(\"Stack Underflow! The stack is empty. Cannot peek.\")\n" +
+"        return None\n" +
+"    top_element = stack[-1]\n" +
+"    print(f\"Top element is: '{top_element}'\")\n" +
+"    return top_element",
+    display:
+"def display(stack):\n" +
+"    \"\"\"Displays all elements of the stack from top to bottom.\"\"\"\n" +
+"    if isEmpty(stack):\n" +
+"        print(\"The stack is empty.\")\n" +
+"    else:\n" +
+"        print(\"\\n--- Current Stack (Top to Bottom) ---\")\n" +
+"        for i in range(len(stack) - 1, -1, -1):\n" +
+"            if i == len(stack) - 1:\n" +
+"                print(f\" {stack[i]}  <-- Top\")\n" +
+"            else:\n" +
+"                print(f\" {stack[i]}\")\n" +
+"        print(\"-------------------------------------\")"
+  };
+  var ORDER = ["isEmpty", "push", "pop", "peek", "display"];
+
+  var termEl = document.getElementById("term");
+  var form = document.getElementById("form");
+  var field = document.getElementById("field");
+  var promptEl = document.getElementById("prompt");
+  var quickEl = document.getElementById("quick");
+  var codeEl = document.getElementById("code");
+  var areaEl = document.getElementById("stack-area");
+
+  var stack, lines, state, activeFn, fresh;
+
+  /* ---------- console output ---------- */
+  function out(text, cls) {
+    String(text).split("\n").forEach(function (t) { lines.push({ text: t, cls: cls || "" }); });
+  }
+
+  function menu() {
+    out("\n========== STACK OPERATIONS ==========");
+    out("1. Push");
+    out("2. Pop");
+    out("3. Peek / Top");
+    out("4. Display");
+    out("5. Check if Empty (isEmpty)");
+    out("6. Exit");
+    out("======================================");
+  }
+
+  /* ---------- the program's functions ---------- */
+  function isEmpty() { return stack.length === 0; }
+
+  function push(item) {
+    activeFn = "push";
+    stack.push(item);
+    fresh = true;
+    out("Success: '" + item + "' pushed onto the stack.", "ok");
+  }
+
+  function pop() {
+    activeFn = "pop";
+    if (isEmpty()) {
+      out("Stack Underflow! The stack is empty. Cannot pop.", "err");
+      return null;
+    }
+    var item = stack.pop();
+    out("Success: Popped element is '" + item + "'.", "ok");
+    return item;
+  }
+
+  function peek() {
+    activeFn = "peek";
+    if (isEmpty()) {
+      out("Stack Underflow! The stack is empty. Cannot peek.", "err");
+      return null;
+    }
+    var t = stack[stack.length - 1];
+    out("Top element is: '" + t + "'");
+    return t;
+  }
+
+  function display() {
+    activeFn = "display";
+    if (isEmpty()) {
+      out("The stack is empty.");
+    } else {
+      out("\n--- Current Stack (Top to Bottom) ---");
+      for (var i = stack.length - 1; i >= 0; i--) {
+        if (i === stack.length - 1) out(" " + stack[i] + "  <-- Top");
+        else out(" " + stack[i]);
+      }
+      out("-------------------------------------");
+    }
+  }
+
+  /* ---------- main loop, one step per input ---------- */
+  function promptText() {
+    if (state === "choice") return "Enter your choice (1-6): ";
+    if (state === "item") return "Enter element to push: ";
+    return "";
+  }
+
+  function submit(raw) {
+    if (state === "ended") return;
+    var value = String(raw).trim();
+    lines.push({ text: promptText(), cls: "", val: value });
+    fresh = false;
+
+    if (state === "item") {
+      push(value);
+      state = "choice";
+      menu();
+    } else {
+      if (value === "1") {
+        state = "item";
+      } else if (value === "2") {
+        pop(); menu();
+      } else if (value === "3") {
+        peek(); menu();
+      } else if (value === "4") {
+        display(); menu();
+      } else if (value === "5") {
+        activeFn = "isEmpty";
+        if (isEmpty()) out("Status: The stack is EMPTY.");
+        else out("Status: The stack is NOT empty (contains " + stack.length + " item(s)).");
+        menu();
+      } else if (value === "6") {
+        out("Exiting program. Goodbye!");
+        state = "ended";
+      } else {
+        out("Invalid choice! Please select an option from 1 to 6.", "err");
+        menu();
+      }
+    }
+    render();
+  }
+
+  /* ---------- drawing ---------- */
+  function renderTerm() {
+    termEl.textContent = "";
+    lines.forEach(function (l) {
+      var d = document.createElement("div");
+      d.className = "ln " + l.cls;
+      if (l.val !== undefined) {
+        var p = document.createElement("span");
+        p.className = "dim";
+        p.textContent = l.text;
+        var v = document.createElement("span");
+        v.className = "val";
+        v.textContent = l.val;
+        d.appendChild(p);
+        d.appendChild(v);
+      } else {
+        d.textContent = l.text;
+      }
+      termEl.appendChild(d);
+    });
+    termEl.scrollTop = termEl.scrollHeight;
+  }
+
+  function renderStack() {
+    areaEl.textContent = "";
+    if (isEmpty()) {
+      var e = document.createElement("div");
+      e.className = "empty";
+      e.textContent = "Stack is empty";
+      areaEl.appendChild(e);
+    } else {
+      var ul = document.createElement("ul");
+      ul.className = "stack";
+      for (var i = stack.length - 1; i >= 0; i--) {
+        var li = document.createElement("li");
+        li.className = "cell" + (i === stack.length - 1 ? " top" : "");
+        if (i === stack.length - 1 && fresh) li.className += " fresh";
+        var idx = document.createElement("span");
+        idx.className = "idx";
+        idx.textContent = i;
+        var it = document.createElement("span");
+        it.className = "item";
+        it.textContent = stack[i];
+        li.appendChild(idx);
+        li.appendChild(it);
+        ul.appendChild(li);
+      }
+      areaEl.appendChild(ul);
+      var b = document.createElement("div");
+      b.className = "base";
+      b.textContent = "bottom";
+      areaEl.appendChild(b);
+    }
+    document.getElementById("s-len").textContent = stack.length;
+    document.getElementById("s-top").textContent = isEmpty() ? "-" : "'" + stack[stack.length - 1] + "'";
+    document.getElementById("s-empty").textContent = isEmpty() ? "True" : "False";
+  }
+
+  function renderCode() {
+    var blocks = codeEl.children;
+    for (var i = 0; i < blocks.length; i++) {
+      blocks[i].classList.toggle("active", blocks[i].dataset.fn === activeFn);
+    }
+    document.getElementById("active-name").textContent = activeFn ? activeFn + "()" : "none yet";
+  }
+
+  function renderInput() {
+    var ended = state === "ended";
+    promptEl.textContent = ended ? "Program finished." : promptText();
+    field.disabled = ended;
+    field.value = "";
+    var btns = quickEl.querySelectorAll("button");
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].disabled = state !== "choice";
+    }
+    if (!ended) field.focus({ preventScroll: true });
+  }
+
+  function render() {
+    renderTerm();
+    renderStack();
+    renderCode();
+    renderInput();
+  }
+
+  /* ---------- setup ---------- */
+  ORDER.forEach(function (name) {
+    var pre = document.createElement("pre");
+    pre.className = "fn";
+    pre.dataset.fn = name;
+    pre.textContent = SRC[name];
+    codeEl.appendChild(pre);
+  });
+
+  [["1", "1 Push"], ["2", "2 Pop"], ["3", "3 Peek"], ["4", "4 Display"], ["5", "5 isEmpty"], ["6", "6 Exit"]].forEach(function (b) {
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = b[1];
+    btn.addEventListener("click", function () { if (state === "choice") submit(b[0]); });
+    quickEl.appendChild(btn);
+  });
+
+  form.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    submit(field.value);
+  });
+
+  function start() {
+    stack = [];
+    lines = [];
+    state = "choice";
+    activeFn = null;
+    fresh = false;
+    menu();
+    render();
+  }
+  document.getElementById("restart").addEventListener("click", start);
+
+  start();
+})();
+</script>
+
+</body></html>
