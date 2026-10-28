@@ -1,4 +1,4 @@
-# Stack Implementation using List in Python
+# Producer-Consumer Problem (Smart Mall Tracking System)
 
 **Name:** Joel Biju
 **UID:** 24003129
@@ -8,334 +8,173 @@
 
 ## Aim
 
-To implement a stack using a Python list and perform the Push, Pop, Peek, Display and isEmpty operations through a menu-driven program, with underflow handling.
+To implement the Producer-Consumer problem using threads and semaphores in Python, simulating a Smart Mall tracking system with a bounded buffer (conveyor belt), overflow handling, underflow handling, and garbage value rejection.
 
 ## Theory
 
-A stack is a linear data structure that follows the **LIFO (Last In, First Out)** principle. Elements are added and removed from one end only, called the **top**. The element pushed last is the first one to be popped.
+The Producer-Consumer problem is a classic OS synchronisation problem where two processes share a fixed-size buffer:
 
-In Python, a list can act as a stack:
+- The **Producer** generates data and places it into the buffer.
+- The **Consumer** reads data from the buffer and processes it.
+- The **Buffer** has a fixed capacity (bounded buffer).
 
-- `list.append(x)` adds an element at the top.
-- `list.pop()` removes and returns the element at the top.
-- `list[-1]` reads the top element without removing it.
-- `len(list) == 0` tells whether the stack is empty.
+Three conditions must be handled:
 
-Stacks are used in the operating system for function call management (call stack), context saving, expression evaluation and undo mechanisms.
+| Condition | When it occurs | How it is handled |
+|-----------|---------------|-------------------|
+| Overflow | Producer tries to add when buffer is full | Producer blocks on `empty` semaphore |
+| Underflow | Consumer tries to remove when buffer is empty | Consumer blocks on `full` semaphore |
+| Garbage Value | Corrupted barcode, negative price, blank ID | Item rejected before entering the buffer |
 
-### Operations
+### Semaphores Used
 
-| Operation | Description | Time complexity |
-|-----------|-------------|-----------------|
-| Push | Adds an element to the top of the stack | O(1) |
-| Pop | Removes and returns the top element | O(1) |
-| Peek | Returns the top element without removing it | O(1) |
-| isEmpty | Checks whether the stack has no elements | O(1) |
-| Display | Prints all elements from top to bottom | O(n) |
+| Semaphore | Type | Initial Value | Purpose |
+|-----------|------|---------------|---------|
+| `empty` | Counting | `BUFFER_SIZE` (4) | Tracks number of free slots |
+| `full` | Counting | 0 | Tracks number of filled slots |
+| `mutex` | Binary (Lock) | 1 | Mutual exclusion for the critical section |
 
-### Underflow
+### Working
 
-Stack Underflow occurs when Pop or Peek is attempted on an empty stack. The program checks `isEmpty()` before these operations and prints an error message instead of failing.
+```
+Producer:
+  wait(empty)   → decrement free slots
+  wait(mutex)   → enter critical section
+    place item on belt
+  signal(mutex) → exit critical section
+  signal(full)  → increment filled slots
+
+Consumer:
+  wait(full)    → decrement filled slots
+  wait(mutex)   → enter critical section
+    remove item from belt
+  signal(mutex) → exit critical section
+  signal(empty) → increment free slots
+```
+
+## System Components
+
+```
+[RFID/Barcode Scanner]  →→→  [Conveyor Belt (4 slots)]  →→→  [Billing & Packing Station]
+      PRODUCER                   BOUNDED BUFFER                      CONSUMER
+```
+
+| Component | Role |
+|-----------|------|
+| RFID / Barcode Scanner | Producer thread — scans items and places them on the belt |
+| Conveyor Belt | Bounded buffer — holds up to `BUFFER_SIZE = 4` items |
+| Billing & Packing Station | Consumer thread — removes and bills items from the belt |
 
 ## Algorithm
 
-1. Create an empty list `stack`.
-2. Display the menu and read the user's choice.
-3. **Push:** read an element and append it to the list.
-4. **Pop:** if the stack is empty, report underflow; otherwise remove and show the last element.
-5. **Peek:** if the stack is empty, report underflow; otherwise show the last element without removing it.
-6. **Display:** if the stack is empty, say so; otherwise print the elements from the last index down to index 0.
-7. **isEmpty:** report whether the length of the list is zero.
-8. **Exit:** end the program.
-9. Repeat from step 2 until the user chooses Exit.
+**Producer (Scanner):**
+1. Validate the scanned item (check for garbage values).
+2. If invalid, reject the item and discard it to the reject bin.
+3. Call `wait(empty)` — block if no free slots available (overflow condition).
+4. Call `wait(mutex)` — acquire the lock.
+5. Place the item onto the conveyor belt (critical section).
+6. Call `signal(mutex)` — release the lock.
+7. Call `signal(full)` — notify the consumer that a new item is available.
+
+**Consumer (Billing Station):**
+1. Call `wait(full)` — block if no items are available (underflow condition).
+2. Call `wait(mutex)` — acquire the lock.
+3. Remove the first item from the conveyor belt, FIFO (critical section).
+4. Call `signal(mutex)` — release the lock.
+5. Call `signal(empty)` — notify the producer that a slot has freed up.
+6. Print the billed item details.
+
+**Garbage Value Check (`is_valid_item`):**
+1. Reject if item ID or name is blank.
+2. Reject if item ID contains corrupted barcode keywords (`ERR`, `CORRUPT`, `NULL`, etc.).
+3. Reject if price is zero, negative, or non-numeric.
+4. Reject if price exceeds Rs. 5,00,000 (sensor anomaly).
 
 ## Program
 
-File: [`stack_implementation.py`](stack_implementation.py)
+File: [`smart_mall_simulator.py`](smart_mall_simulator.py)
+
+### Key Constants
 
 ```python
-def isEmpty(stack):
-    """Checks whether the stack is empty."""
-    return len(stack) == 0
-
-
-def push(stack, item):
-    """Adds an element to the top of the stack."""
-    stack.append(item)
-    print(f"Success: '{item}' pushed onto the stack.")
-
-
-def pop(stack):
-    """Removes and returns the top element of the stack."""
-    if isEmpty(stack):
-        print("Stack Underflow! The stack is empty. Cannot pop.")
-        return None
-    item = stack.pop()
-    print(f"Success: Popped element is '{item}'.")
-    return item
-
-
-def peek(stack):
-    """Displays the top element without removing it."""
-    if isEmpty(stack):
-        print("Stack Underflow! The stack is empty. Cannot peek.")
-        return None
-    top_element = stack[-1]
-    print(f"Top element is: '{top_element}'")
-    return top_element
-
-
-def display(stack):
-    """Displays all elements of the stack from top to bottom."""
-    if isEmpty(stack):
-        print("The stack is empty.")
-    else:
-        print("\n--- Current Stack (Top to Bottom) ---")
-        for i in range(len(stack) - 1, -1, -1):
-            if i == len(stack) - 1:
-                print(f" {stack[i]}  <-- Top")
-            else:
-                print(f" {stack[i]}")
-        print("-------------------------------------")
-
-
-def main():
-    stack = []
-
-    while True:
-        print("\n========== STACK OPERATIONS ==========")
-        print("1. Push")
-        print("2. Pop")
-        print("3. Peek / Top")
-        print("4. Display")
-        print("5. Check if Empty (isEmpty)")
-        print("6. Exit")
-        print("======================================")
-
-        choice = input("Enter your choice (1-6): ").strip()
-
-        if choice == '1':
-            item = input("Enter element to push: ").strip()
-            push(stack, item)
-
-        elif choice == '2':
-            pop(stack)
-
-        elif choice == '3':
-            peek(stack)
-
-        elif choice == '4':
-            display(stack)
-
-        elif choice == '5':
-            if isEmpty(stack):
-                print("Status: The stack is EMPTY.")
-            else:
-                print(f"Status: The stack is NOT empty (contains {len(stack)} item(s)).")
-
-        elif choice == '6':
-            print("Exiting program. Goodbye!")
-            break
-
-        else:
-            print("Invalid choice! Please select an option from 1 to 6.")
-
-
-if __name__ == "__main__":
-    main()
+BUFFER_SIZE   = 4          # conveyor belt capacity
+SCAN_DELAY    = (0.2, 0.6) # producer thread delay range (seconds)
+BILLING_DELAY = (0.8, 1.6) # consumer thread delay range (seconds)
 ```
+
+The scanner is faster than the billing station by design, so overflow events are triggered naturally during the simulation.
+
+### Garbage Value Test Cases
+
+| Test Case | Item ID | Price | Reason Rejected |
+|-----------|---------|-------|-----------------|
+| Damaged barcode | `ERR_CORRUPT_772` | 60 | Corrupt keyword in ID |
+| Negative price | `ITEM_102` | -250 | Price must be greater than 0 |
+| Non-numeric price | `ITEM_103` | `FREE_ITEM` | Price is not a number |
+| Blank RFID tag | ` ` | 100 | ID and name cannot be blank |
+| Unrealistic price | `MALL-099` | 90,00,000 | Sensor read anomaly |
 
 ## How to Run
 
-Python 3.6 or later is required (the program uses f-strings).
+Python 3.6 or later is required.
 
 ```bash
-python stack_implementation.py
+python smart_mall_simulator.py
 ```
+
+The program asks for:
+- **Number of items to scan** (default: 12)
+- **Garbage item chance in %** (default: 20)
+
+It then starts the producer and consumer as two separate threads and prints each event live.
 
 ## Sample Output
 
-The menu is printed before every choice. It is shown in full once and left out of the later steps to keep this short.
-
 ```
-========== STACK OPERATIONS ==========
-1. Push
-2. Pop
-3. Peek / Top
-4. Display
-5. Check if Empty (isEmpty)
-6. Exit
-======================================
-Enter your choice (1-6):
-```
+=======================================================
+   SMART MALL TRACKING SYSTEM: PRODUCER-CONSUMER SIM
+=======================================================
+ Producer : RFID/Barcode Scanner (thread)
+ Buffer   : Conveyor Belt (Capacity = 4 items)
+ Consumer : Billing & Packing Station (thread)
+=======================================================
+Number of items to scan [12]: 8
+Garbage (damaged) item chance in % [20]: 25
 
-**Pop on an empty stack (underflow)**
+>>> Simulation started
+    Items to scan: 8  |  Valid items: 6  |  Garbage: 2
+    full=0 empty=4 | EMPTY | EMPTY | EMPTY | EMPTY
 
-```
-Enter your choice (1-6): 2
-Stack Underflow! The stack is empty. Cannot pop.
-```
+[SCANNER] GARBAGE VALUE REJECTED: Damaged/Corrupt barcode pattern detected in 'ERR_CORRUPT_772'.
+    -> Item sent to reject bin. Belt unchanged.
 
-**Push**
+[+] SUCCESS: Scanner placed 'Cereal Box' (ID: MALL-001, Rs.220.0) on belt.
+    full=1 empty=3 | Cereal Box | EMPTY | EMPTY | EMPTY
 
-```
-Enter your choice (1-6): 1
-Enter element to push: 10
-Success: '10' pushed onto the stack.
+[+] SUCCESS: Scanner placed 'Almond Milk' (ID: MALL-002, Rs.180.0) on belt.
+    full=2 empty=2 | Cereal Box | Almond Milk | EMPTY | EMPTY
 
-Enter your choice (1-6): 1
-Enter element to push: 20
-Success: '20' pushed onto the stack.
+[*] PROCESSED & BILLED: 'Cereal Box' (ID: MALL-001)
+    -> Item packed and billed for Rs. 220.00
+    full=1 empty=3 | Almond Milk | EMPTY | EMPTY | EMPTY
 
-Enter your choice (1-6): 1
-Enter element to push: 30
-Success: '30' pushed onto the stack.
-```
+[!] OVERFLOW ALERT: Conveyor belt is FULL. Scanner waiting...
 
-**Display**
+[*] PROCESSED & BILLED: 'Almond Milk' (ID: MALL-002)
+    -> Item packed and billed for Rs. 180.00
+    full=0 empty=4 | EMPTY | EMPTY | EMPTY | EMPTY
 
-```
-Enter your choice (1-6): 4
-
---- Current Stack (Top to Bottom) ---
- 30  <-- Top
- 20
- 10
--------------------------------------
-```
-
-**Peek**
-
-```
-Enter your choice (1-6): 3
-Top element is: '30'
-```
-
-**isEmpty**
-
-```
-Enter your choice (1-6): 5
-Status: The stack is NOT empty (contains 3 item(s)).
-```
-
-**Pop**
-
-```
-Enter your choice (1-6): 2
-Success: Popped element is '30'.
-```
-
-**Invalid choice**
-
-```
-Enter your choice (1-6): 9
-Invalid choice! Please select an option from 1 to 6.
-```
-
-**Exit**
-
-```
-Enter your choice (1-6): 6
-Exiting program. Goodbye!
+>>> Simulation finished
+    Placed on belt  : 6
+    Rejected        : 2
+    Billed          : 6
+    Overflow events : 1
+    Underflow events: 0
 ```
 
 ## Result
 
-The stack was implemented using a Python list. Push, Pop, Peek, Display and isEmpty work as expected, and Pop or Peek on an empty stack is handled with a Stack Underflow message.
-
----
-
-## Simulator
-
-File: [`stack_simulator.py`](stack_simulator.py)
-
-The simulator runs all five operations automatically in a fixed sequence, without any user input. It uses the same `push`, `pop`, `peek`, `display` and `isEmpty` functions from the main program, so the logic is identical.
-
-**Sequence of steps demonstrated:**
-
-| Step | Operation | Expected result |
-|------|-----------|-----------------|
-| 1 | isEmpty | True (stack starts empty) |
-| 2 | Pop | Stack Underflow |
-| 3 | Peek | Stack Underflow |
-| 4–7 | Push 10, 20, 30, 40 | Each element added to top |
-| 8 | Display | 40 → 30 → 20 → 10 (top to bottom) |
-| 9 | Peek | 40 |
-| 10 | isEmpty | False |
-| 11–14 | Pop × 4 | 40, 30, 20, 10 (LIFO order) |
-| 15 | Display | Stack is empty |
-| 16 | isEmpty | True |
-
-A short delay (`DELAY = 0.6` seconds, adjustable at the top of the file) is added between steps so the output is easy to follow.
-
-### How to Run
-
-```bash
-python stack_simulator.py
-```
-
-### Sample Output
-
-```
-=======================================================
-       STACK SIMULATOR: OS PRACTICAL DEMONSTRATION
-=======================================================
- Data structure : Stack (Python list)
- Operations     : Push, Pop, Peek, Display, isEmpty
- Underflow      : Triggered when Pop/Peek on empty stack
-=======================================================
-
-=============================================
-  STEP: isEmpty  (stack is empty, expected: True)
-=============================================
-Stack is EMPTY.
-
-=============================================
-  STEP: Pop      (underflow expected)
-=============================================
-Stack Underflow! The stack is empty. Cannot pop.
-
-=============================================
-  STEP: Push     '10'
-=============================================
-Success: '10' pushed onto the stack.
-
-=============================================
-  STEP: Push     '20'
-=============================================
-Success: '20' pushed onto the stack.
-
-=============================================
-  STEP: Push     '30'
-=============================================
-Success: '30' pushed onto the stack.
-
-=============================================
-  STEP: Push     '40'
-=============================================
-Success: '40' pushed onto the stack.
-
-=============================================
-  STEP: Display  (4 elements)
-=============================================
-
---- Current Stack (Top to Bottom) ---
- 40  <-- Top
- 30
- 20
- 10
--------------------------------------
-
-=============================================
-  STEP: Pop      (LIFO order)
-=============================================
-Success: Popped element is '40'.
-
-=============================================
-  STEP: Pop      (LIFO order)
-=============================================
-Success: Popped element is '30'.
-```
+The Producer-Consumer problem was successfully simulated using Python threads and semaphores. The conveyor belt (bounded buffer) maintained synchronisation between the scanner (producer) and the billing station (consumer). Overflow was handled by blocking the producer, underflow by blocking the consumer, and garbage values were caught and rejected before reaching the buffer.
 
 ---
 
