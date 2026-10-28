@@ -245,4 +245,98 @@ The stack was implemented using a Python list. Push, Pop, Peek, Display and isEm
 
 ---
 
+## Simulator
+
+File: [`stack_simulator.py`](stack_simulator.py)
+
+The simulator runs all five operations automatically in a fixed sequence, without any user input. It uses the same `push`, `pop`, `peek`, `display` and `isEmpty` functions from the main program, so the logic is identical.
+
+**Sequence of steps demonstrated:**
+
+| Step | Operation | Expected result |
+|------|-----------|-----------------|
+| 1 | isEmpty | True (stack starts empty) |
+| 2 | Pop | Stack Underflow |
+| 3 | Peek | Stack Underflow |
+| 4–7 | Push 10, 20, 30, 40 | Each element added to top |
+| 8 | Display | 40 → 30 → 20 → 10 (top to bottom) |
+| 9 | Peek | 40 |
+| 10 | isEmpty | False |
+| 11–14 | Pop × 4 | 40, 30, 20, 10 (LIFO order) |
+| 15 | Display | Stack is empty |
+| 16 | isEmpty | True |
+
+A short delay (`DELAY = 0.6` seconds, adjustable at the top of the file) is added between steps so the output is easy to follow.
+
+### How to Run
+
+```bash
+python stack_simulator.py
+```
+
+### Sample Output
+
+```
+=======================================================
+       STACK SIMULATOR: OS PRACTICAL DEMONSTRATION
+=======================================================
+ Data structure : Stack (Python list)
+ Operations     : Push, Pop, Peek, Display, isEmpty
+ Underflow      : Triggered when Pop/Peek on empty stack
+=======================================================
+
+=============================================
+  STEP: isEmpty  (stack is empty, expected: True)
+=============================================
+Stack is EMPTY.
+
+=============================================
+  STEP: Pop      (underflow expected)
+=============================================
+Stack Underflow! The stack is empty. Cannot pop.
+
+=============================================
+  STEP: Push     '10'
+=============================================
+Success: '10' pushed onto the stack.
+
+=============================================
+  STEP: Push     '20'
+=============================================
+Success: '20' pushed onto the stack.
+
+=============================================
+  STEP: Push     '30'
+=============================================
+Success: '30' pushed onto the stack.
+
+=============================================
+  STEP: Push     '40'
+=============================================
+Success: '40' pushed onto the stack.
+
+=============================================
+  STEP: Display  (4 elements)
+=============================================
+
+--- Current Stack (Top to Bottom) ---
+ 40  <-- Top
+ 30
+ 20
+ 10
+-------------------------------------
+
+=============================================
+  STEP: Pop      (LIFO order)
+=============================================
+Success: Popped element is '40'.
+
+=============================================
+  STEP: Pop      (LIFO order)
+=============================================
+Success: Popped element is '30'.
+```
+
+---
+
 Joel Biju | UID 24003129
